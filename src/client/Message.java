@@ -2,7 +2,7 @@ package client;
 
 import java.nio.ByteBuffer;
 
-public class Message {
+public class  Message {
     private MessageType type;
     private ByteBuffer data;
 
