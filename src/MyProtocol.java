@@ -1,7 +1,10 @@
-import client.*;
+import client.Client;
+import client.Message;
+import client.MessageType;
 
 import java.nio.ByteBuffer;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -18,11 +21,12 @@ public class MyProtocol{
     // The port to connect to. 8954 for the simulation server.
     private static int SERVER_PORT = 8954;
     // The frequency to use.
-    private static int frequency = //TODO: Set this to your group frequency!
+    private static int frequency = 4800;//TODO: Set this to your group frequency!
     // View the simulator at https://netsys.ewi.utwente.nl/integrationproject/
 
     private BlockingQueue<Message> receivedQueue;
     private BlockingQueue<Message> sendingQueue;
+
 
     public MyProtocol(String server_ip, int server_port, int frequency){
         receivedQueue = new LinkedBlockingQueue<Message>();
@@ -82,6 +86,10 @@ public class MyProtocol{
             System.out.println();
         }
 
+
+
+
+
         public void run(){
             while(true) {
                 try{
@@ -100,7 +108,7 @@ public class MyProtocol{
                         System.out.println("DONE_SENDING");
                     } else if (m.getType() == MessageType.HELLO){
                         System.out.println("HELLO");
-                    } else if (m.getType() == MessageType.SENDING){
+                      } else if (m.getType() == MessageType.SENDING){
                         System.out.println("SENDING");
                     } else if (m.getType() == MessageType.END){
                         System.out.println("END");
