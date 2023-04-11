@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.Random;
 
 /**
 * This is just some example code to show you how to interact 
@@ -23,11 +24,13 @@ public class MyProtocol{
     // The port to connect to. 8954 for the simulation server.
     private static int SERVER_PORT = 8954;
     // The frequency to use.
-    private static int frequency = 4800; //TODO: Set this to your group frequency!
+    private static int frequency = 4801; //TODO: Set this to your group frequency!
     // View the simulator at https://netsys.ewi.utwente.nl/integrationproject/
 
     private BlockingQueue<Message> receivedQueue;
     private BlockingQueue<Message> sendingQueue;
+
+    private Random rand;
 
     //indexare
     private ArrayList<String> possibleIndex;
@@ -45,9 +48,24 @@ public class MyProtocol{
 
     private String tempMsg = null; //Maybe rename?
 
+    private void sendMessage(String input) throws InterruptedException {
+        byte[] input_b = input.getBytes();
+        ByteBuffer toSend = ByteBuffer.allocate(input.length());
+        toSend.put(input_b, 0, input_b.length);
+
+        if(input.length() > 2){
+            Message msg = new Message(MessageType.DATA, toSend);
+            sendingQueue.put(msg);
+        } else {
+            Message msg = new Message(MessageType.DATA_SHORT, toSend);
+            sendingQueue.put(msg);
+        }
+    }
+
 
 
     public MyProtocol(String server_ip, int server_port, int frequency){
+        rand = new Random();
         receivedQueue = new LinkedBlockingQueue<Message>();
         sendingQueue = new LinkedBlockingQueue<Message>();
 
@@ -75,13 +93,14 @@ public class MyProtocol{
                 if(command.equals("index")){ //Starts up the indexing proccess, selecting this node as node "a"
                     System.out.println("This node's index is: " + assignIndex());
 
-                    byte[] index_b = (myIndex+0).getBytes(); //myIndex + distance to index (distance is 0 in this case)
-                    ByteBuffer toSend = ByteBuffer.allocate(index_b.length); // copy data without newline / returns
-                    toSend.put( index_b, 0, index_b.length); // enter data without newline / returns
-                    Message msg;
-
-                    msg = new Message(MessageType.DATA_SHORT, toSend);
-                    sendingQueue.put(msg);
+                    sendMessage(myIndex+0);
+//                    byte[] index_b = (myIndex+0).getBytes(); //myIndex + distance to index (distance is 0 in this case)
+//                    ByteBuffer toSend = ByteBuffer.allocate(index_b.length); // copy data without newline / returns
+//                    toSend.put( index_b, 0, index_b.length); // enter data without newline / returns
+//                    Message msg;
+//
+//                    msg = new Message(MessageType.DATA_SHORT, toSend);
+//                    sendingQueue.put(msg);
 
                     continue;
                 }
@@ -97,6 +116,9 @@ public class MyProtocol{
                 }
                 if(command.equals("menu")){
                     continue; //TODO: implement
+                }
+                if(command.startsWith("send")){
+                    //TODO: packet sending
                 }
 //                read = System.in.read(temp.array()); // Get data from stdin, hit enter to send!
 //                if(read > 0){
@@ -150,13 +172,14 @@ public class MyProtocol{
                     } else if (m.getType() == MessageType.FREE){
                         System.out.println("FREE");
                         if(tempMsg != null){
-                            byte[] msg = tempMsg.getBytes(); //myIndex + distance to index (distance is 0 in this case)
-                            ByteBuffer toSend = ByteBuffer.allocate(msg.length); // copy data without newline / returns
-                            toSend.put( msg, 0, msg.length); // enter data without newline / returns
-                            Message message;
-
-                            message = new Message(MessageType.DATA_SHORT, toSend);
-                            sendingQueue.put(message);
+                            sendMessage(tempMsg);
+//                            byte[] msg = tempMsg.getBytes(); //myIndex + distance to index (distance is 0 in this case)
+//                            ByteBuffer toSend = ByteBuffer.allocate(msg.length); // copy data without newline / returns
+//                            toSend.put( msg, 0, msg.length); // enter data without newline / returns
+//                            Message message;
+//
+//                            message = new Message(MessageType.DATA_SHORT, toSend);
+//                            sendingQueue.put(message);
                             tempMsg = null;
                         }
                     } else if (m.getType() == MessageType.DATA){
