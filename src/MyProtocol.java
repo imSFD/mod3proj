@@ -95,7 +95,7 @@ public class MyProtocol{
 
                     continue;
                 }
-                if(command.equals("menu"){
+                if(command.equals("menu")){
                     continue; //TODO: implement
                 }
 //                read = System.in.read(temp.array()); // Get data from stdin, hit enter to send!
