@@ -2,13 +2,14 @@ import client.*;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.stream.Collectors;
 
 /**
 * This is just some example code to show you how to interact 
@@ -16,7 +17,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 * Feel free to modify this code in any way you like!
 */
 
-public class MyProtocol{
+public class MyProtocol {
 
     // The host to connect to. Set this to localhost when using the audio interface tool.
     private static String SERVER_IP = "netsys.ewi.utwente.nl"; //"127.0.0.1";
@@ -31,22 +32,51 @@ public class MyProtocol{
 
     //indexare
     private ArrayList<String> possibleIndex;
-    private String myIndex;
+    private String myIndex = "";
 
-    private String assignIndex(){
+    private String assignIndex() {
         myIndex = possibleIndex.get(0);
         possibleIndex.remove(0);
         distanceVector.put(myIndex, 0);
         return myIndex;
     }
 
+    public String getIndex() {
+        return myIndex;
+    }
+
     //distance vectors
-    private HashMap<String,Integer> distanceVector;
+    private HashMap<String, Integer> distanceVector;
 
     private String tempMsg = null; //Maybe rename?
 
+    private boolean token = false;
 
 
+    public Map<String,Integer> getNeighbours() {
+        return distanceVector.entrySet().stream().
+            filter(map -> map.getValue() == 1).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+}
+    public String passToken() {
+        if(getNeighbours().size()==1) {
+            ArrayList<String> neighbors = new ArrayList<>(getNeighbours().keySet());
+            return neighbors.get(0);
+        } else if(getNeighbours().size()>1){
+            ArrayList<String> neighbors = new ArrayList<>(getNeighbours().keySet());
+            Random rand = new Random();
+            int randIndex = rand.nextInt(neighbors.size());
+            return neighbors.get(randIndex);
+        }
+        return "a";
+    }
+
+    public void menu(){
+        System.out.println("TOKEN - PASS YOUR TOKEN TO THE NEXT NODE");
+        System.out.println("EXIT -  EXIT THE PROGRAM");
+        System.out.println("MyVector - SHOW THE DISTANCE VECTOR OF THE CURRENT NODE");
+        System.out.println("myIndex - GET AN INDEX IF YOU STILL DON'T HAVE ONE, FROM THE REMAINING ONES");
+        System.out.println("MENU - display this screen again");
+    }
     public MyProtocol(String server_ip, int server_port, int frequency){
         receivedQueue = new LinkedBlockingQueue<Message>();
         sendingQueue = new LinkedBlockingQueue<Message>();
@@ -62,6 +92,10 @@ public class MyProtocol{
             }
         };
 
+
+
+
+
         new Client(SERVER_IP, SERVER_PORT, frequency, receivedQueue, sendingQueue); // Give the client the Queues to use
 
         new receiveThread(receivedQueue).start(); // Start thread to handle received messages!
@@ -74,29 +108,40 @@ public class MyProtocol{
                 String command = reader.readLine();
                 if(command.equals("index")){ //Starts up the indexing proccess, selecting this node as node "a"
                     System.out.println("This node's index is: " + assignIndex());
-
                     byte[] index_b = (myIndex+0).getBytes(); //myIndex + distance to index (distance is 0 in this case)
                     ByteBuffer toSend = ByteBuffer.allocate(index_b.length); // copy data without newline / returns
                     toSend.put( index_b, 0, index_b.length); // enter data without newline / returns
                     Message msg;
-
                     msg = new Message(MessageType.DATA_SHORT, toSend);
                     sendingQueue.put(msg);
-
                     continue;
                 }
-                if(command.equals("myIndex")){
+                if(command.equals("myIndex") && getIndex().equals("")){
                     System.out.println(myIndex);
-
                     continue;
                 }
                 if(command.equals("myVector")){
                     System.out.println(distanceVector.toString());
-
                     continue;
                 }
                 if(command.equals("menu")){
-                    continue; //TODO: implement
+                    menu();
+                };
+
+                if(command.equals("exit"){
+                    System.exit(0);
+                }
+
+
+
+                if(Objects.equals(getIndex(), "a"))){
+                    token = true;
+                }
+                if(command.equals("TOKEN") && token && distanceVector.size() > 0){
+                    String destination = passToken();
+                    String finalMsg = destination + "~";
+
+
                 }
 //                read = System.in.read(temp.array()); // Get data from stdin, hit enter to send!
 //                if(read > 0){
