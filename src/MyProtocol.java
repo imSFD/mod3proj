@@ -50,14 +50,14 @@ public class MyProtocol {
 
     private String tempMsg = null; //Maybe rename?
 
+    //Token passing
     private boolean token = false;
 
-
-    public Map<String,Integer> getNeighbours() {
+    private Map<String,Integer> getNeighbours() {
         return distanceVector.entrySet().stream().
             filter(map -> map.getValue() == 1).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 }
-    public String passToken() {
+    private String passToken() {
         if(getNeighbours().size()==1) {
             ArrayList<String> neighbors = new ArrayList<>(getNeighbours().keySet());
             return neighbors.get(0);
@@ -70,7 +70,7 @@ public class MyProtocol {
         return "a";
     }
 
-    public void menu(){
+    private void menu(){
         System.out.println("TOKEN - PASS YOUR TOKEN TO THE NEXT NODE");
         System.out.println("EXIT -  EXIT THE PROGRAM");
         System.out.println("MyVector - SHOW THE DISTANCE VECTOR OF THE CURRENT NODE");
@@ -126,15 +126,15 @@ public class MyProtocol {
                 }
                 if(command.equals("menu")){
                     menu();
-                };
+                }
 
-                if(command.equals("exit"){
+                if(command.equals("exit")){
                     System.exit(0);
                 }
 
 
 
-                if(Objects.equals(getIndex(), "a"))){
+                if(Objects.equals(getIndex(), "a")){
                     token = true;
                 }
                 if(command.equals("TOKEN") && token && distanceVector.size() > 0){
@@ -211,14 +211,18 @@ public class MyProtocol {
                         System.out.print("DATA_SHORT: ");
                         String s = StandardCharsets.UTF_8.decode(m.getData()).toString(); //Decode the data recieved
                         System.out.println(s); //Print the data
-                        if(distanceVector.containsKey(s.substring(0,1))){//If index is not this node's index, add the route to distanceVector
-                            continue;
+                        if(s.substring(0,1).equals("t")){
+
                         } else {
-                            String index = s.substring(0,1);
-                            Integer distance = Integer.valueOf(s.substring(1,2));
-                            possibleIndex.remove(index);
-                            distanceVector.put(index, distance + 1);
-                            tempMsg = index + (distance+1);
+                            if (distanceVector.containsKey(s.substring(0, 1))) {//If index is not this node's index, add the route to distanceVector
+                                continue;
+                            } else {
+                                String index = s.substring(0, 1);
+                                Integer distance = Integer.valueOf(s.substring(1, 2));
+                                possibleIndex.remove(index);
+                                distanceVector.put(index, distance + 1);
+                                tempMsg = index + (distance + 1);
+                            }
                         }
                     } else if (m.getType() == MessageType.DONE_SENDING){
                         System.out.println("DONE_SENDING");
