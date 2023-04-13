@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Scanner;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.Random;
@@ -24,13 +25,16 @@ public class MyProtocol{
     // The port to connect to. 8954 for the simulation server.
     private static int SERVER_PORT = 8954;
     // The frequency to use.
-    private static int frequency = 4801; //TODO: Set this to your group frequency!
+    private static int frequency = 4800; //TODO: Set this to your group frequency!
     // View the simulator at https://netsys.ewi.utwente.nl/integrationproject/
 
     private BlockingQueue<Message> receivedQueue;
     private BlockingQueue<Message> sendingQueue;
 
+
+    private int seqNumber = 0;
     private Random rand;
+    private int counter = 0;
 
     //indexare
     private ArrayList<String> possibleIndex;
@@ -46,7 +50,12 @@ public class MyProtocol{
     //distance vectors
     private HashMap<String,Integer> distanceVector;
 
+    private MessageType state = MessageType.FREE;
+
+
+
     private String tempMsg = null; //Maybe rename?
+    private String tempMsg2 = null;
 
     private void sendMessage(String input) throws InterruptedException {
         byte[] input_b = input.getBytes();
@@ -61,8 +70,6 @@ public class MyProtocol{
             sendingQueue.put(msg);
         }
     }
-
-
 
     public MyProtocol(String server_ip, int server_port, int frequency){
         rand = new Random();
@@ -88,8 +95,11 @@ public class MyProtocol{
         try{
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
 
+
             while(true){
+
                 String command = reader.readLine();
+
                 if(command.equals("index")){ //Starts up the indexing proccess, selecting this node as node "a"
                     System.out.println("This node's index is: " + assignIndex());
 
@@ -118,7 +128,9 @@ public class MyProtocol{
                     continue; //TODO: implement
                 }
                 if(command.startsWith("send")){
-                    //TODO: packet sending
+//                   sendMessage(messageToSend);
+
+
                 }
 //                read = System.in.read(temp.array()); // Get data from stdin, hit enter to send!
 //                if(read > 0){
@@ -167,10 +179,25 @@ public class MyProtocol{
             while(true) {
                 try{
                     Message m = receivedQueue.take();
+                    // assume sender sends a packet
                     if (m.getType() == MessageType.BUSY){
-                        System.out.println("BUSY");
+
+                        // wait for packet  arrival
+                        Thread.sleep(2^timeToWait);
+
+                           if(rand.nextInt()<25  || timeToWait==6){
+                               sendMessage("h1");
+                           timeToWait=1;}
+                           else{
+                               // increase the time unless it send back
+                               timeToWait=timeToWait+1;
+                           }
+
+
+
+                        //System.out.println("BUSY");
                     } else if (m.getType() == MessageType.FREE){
-                        System.out.println("FREE");
+                        //System.out.println("FREE");
                         if(tempMsg != null){
                             sendMessage(tempMsg);
 //                            byte[] msg = tempMsg.getBytes(); //myIndex + distance to index (distance is 0 in this case)
@@ -180,6 +207,7 @@ public class MyProtocol{
 //
 //                            message = new Message(MessageType.DATA_SHORT, toSend);
 //                            sendingQueue.put(message);
+                            tempMsg2 = tempMsg;
                             tempMsg = null;
                         }
                     } else if (m.getType() == MessageType.DATA){
