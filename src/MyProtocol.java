@@ -176,6 +176,7 @@ public class MyProtocol{
         }
 
         public void run(){
+            int timeToWait = 1;
             while(true) {
                 try{
                     Message m = receivedQueue.take();
