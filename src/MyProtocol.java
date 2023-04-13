@@ -2,12 +2,14 @@ import client.*;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.stream.Collectors;
 
 /**
 * This is just some example code to show you how to interact 
@@ -15,14 +17,14 @@ import java.util.concurrent.LinkedBlockingQueue;
 * Feel free to modify this code in any way you like!
 */
 
-public class MyProtocol{
+public class MyProtocol {
 
     // The host to connect to. Set this to localhost when using the audio interface tool.
     private static String SERVER_IP = "netsys.ewi.utwente.nl"; //"127.0.0.1";
     // The port to connect to. 8954 for the simulation server.
     private static int SERVER_PORT = 8954;
     // The frequency to use.
-    private static int frequency = 4802; //TODO: Set this to your group frequency!
+    private static int frequency = 4800; //TODO: Set this to your group frequency!
     // View the simulator at https://netsys.ewi.utwente.nl/integrationproject/
 
     private BlockingQueue<Message> receivedQueue;
@@ -34,18 +36,27 @@ public class MyProtocol{
     private ArrayList<String> possibleIndex;
     private String myIndex;
 
-    private String assignIndex(){
+    private String assignIndex() {
         myIndex = possibleIndex.get(0);
         possibleIndex.remove(0);
         distanceVector.put(myIndex, 0);
+        if(Objects.equals(getIndex(), "a")){
+            token = true;
+        }
+        return myIndex;
+    }
+
+    public String getIndex() {
         return myIndex;
     }
 
     //distance vectors
-    private HashMap<String,Integer> distanceVector;
+    private HashMap<String, Integer> distanceVector;
 
     private String tempMsg = null; //Maybe rename?
 
+    //Token passing
+    private boolean token = false;
     //Function for sending a packet. Automatically detects if DATA or DATA_SHORT should be used
     private void sendMessage(String input) throws InterruptedException {
         byte[] input_b = input.getBytes();
@@ -62,7 +73,30 @@ public class MyProtocol{
     }
 
 
+    private Map<String,Integer> getNeighbours() {
+        return distanceVector.entrySet().stream().
+            filter(map -> map.getValue() == 1).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+}
+    private String passToken() {
+        if(getNeighbours().size()==1) {
+            ArrayList<String> neighbors = new ArrayList<>(getNeighbours().keySet());
+            return neighbors.get(0);
+        } else if(getNeighbours().size()>1){
+            ArrayList<String> neighbors = new ArrayList<>(getNeighbours().keySet());
+            Random rand = new Random();
+            int randIndex = rand.nextInt(neighbors.size());
+            return neighbors.get(randIndex);
+        }
+        return "a";
+    }
 
+    private void menu(){
+        System.out.println("TOKEN - PASS YOUR TOKEN TO THE NEXT NODE");
+        System.out.println("EXIT -  EXIT THE PROGRAM");
+        System.out.println("MyVector - SHOW THE DISTANCE VECTOR OF THE CURRENT NODE");
+        System.out.println("myIndex - GET AN INDEX IF YOU STILL DON'T HAVE ONE, FROM THE REMAINING ONES");
+        System.out.println("MENU - display this screen again");
+    }
     public MyProtocol(String server_ip, int server_port, int frequency){
         rand = new Random();
         receivedQueue = new LinkedBlockingQueue<Message>();
@@ -78,6 +112,10 @@ public class MyProtocol{
                 add("d");
             }
         };
+
+
+
+
 
         new Client(SERVER_IP, SERVER_PORT, frequency, receivedQueue, sendingQueue); // Give the client the Queues to use
 
@@ -98,16 +136,25 @@ public class MyProtocol{
                 }
                 if(command.equals("myIndex")){
                     System.out.println(myIndex);
-
                     continue;
                 }
                 if(command.equals("myVector")){
                     System.out.println(distanceVector.toString());
-
                     continue;
                 }
                 if(command.equals("menu")){
-                    continue; //TODO: implement
+                    menu();
+                }
+
+                if(command.equals("exit")){
+                    System.exit(0);
+                }
+
+                if(command.equals("TOKEN") && token && distanceVector.size() > 0){
+                    String destination = passToken();
+                    String finalMsg = destination + "~";
+
+
                 }
                 //Command syntax: send node "message"
                 //Example: send c "hello world"
@@ -192,14 +239,18 @@ public class MyProtocol{
                         System.out.print("DATA_SHORT: ");
                         String s = StandardCharsets.UTF_8.decode(m.getData()).toString(); //Decode the data recieved
                         System.out.println(s); //Print the data
-                        if(distanceVector.containsKey(s.substring(0,1))){//If index is not this node's index, add the route to distanceVector
-                            continue;
-                        } else { //Also, retransmit the DATA_SHORT packet
-                            String index = s.substring(0,1);
-                            Integer distance = Integer.valueOf(s.substring(1,2));
-                            possibleIndex.remove(index);
-                            distanceVector.put(index, distance + 1);
-                            tempMsg = index + (distance+1); //Store the message in a temporary variable. This message will be sent when the channel is FREE
+                        if(s.substring(0,1).equals("t")){
+
+                        } else {
+                            if (distanceVector.containsKey(s.substring(0, 1))) {//If index is not this node's index, add the route to distanceVector
+                                continue;
+                            } else {
+                                String index = s.substring(0, 1);
+                                Integer distance = Integer.valueOf(s.substring(1, 2));
+                                possibleIndex.remove(index);
+                                distanceVector.put(index, distance + 1);
+                                tempMsg = index + (distance + 1);
+                            }
                         }
                     } else if (m.getType() == MessageType.DONE_SENDING){
                         System.out.println("DONE_SENDING");
