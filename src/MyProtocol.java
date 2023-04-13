@@ -2,7 +2,6 @@ import client.*;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -24,7 +23,7 @@ public class MyProtocol {
     // The port to connect to. 8954 for the simulation server.
     private static int SERVER_PORT = 8954;
     // The frequency to use.
-    private static int frequency = 4800; //TODO: Set this to your group frequency!
+    private static int frequency = 4803; //TODO: Set this to your group frequency!
     // View the simulator at https://netsys.ewi.utwente.nl/integrationproject/
 
     private BlockingQueue<Message> receivedQueue;
@@ -42,6 +41,7 @@ public class MyProtocol {
         distanceVector.put(myIndex, 0);
         if(Objects.equals(getIndex(), "a")){
             token = true;
+            System.out.println("You have the token");
         }
         return myIndex;
     }
@@ -57,6 +57,8 @@ public class MyProtocol {
 
     //Token passing
     private boolean token = false;
+    private Message lastPacketRecieved = null;
+
     //Function for sending a packet. Automatically detects if DATA or DATA_SHORT should be used
     private void sendMessage(String input) throws InterruptedException {
         byte[] input_b = input.getBytes();
@@ -72,12 +74,31 @@ public class MyProtocol {
         }
     }
 
+//    private void sendMessage()
 
+    //If input string is shorter than 32 bytes, add padding. We will use "@" as padding
+    private byte[] addPadding(byte[] input){
+        if((int) input[0] > 32){
+            System.out.println("Packet is longer than 32 characters!");
+            return null;
+        } else {
+            for(int i = (int) input[0]; i < 32; i++){
+                input[i] = 64;
+            }
+            return input;
+        }
+    }
+
+
+    //Token passing methods
+    //Get list of neighbours
     private Map<String,Integer> getNeighbours() {
         return distanceVector.entrySet().stream().
             filter(map -> map.getValue() == 1).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-}
-    private String passToken() {
+    }
+
+    //returns a random neighbour
+    private String getRandomNeighbour() {
         if(getNeighbours().size()==1) {
             ArrayList<String> neighbors = new ArrayList<>(getNeighbours().keySet());
             return neighbors.get(0);
@@ -90,12 +111,104 @@ public class MyProtocol {
         return "a";
     }
 
+    //Token is a DATA_SHORT type, format: t sourceaddr destaddr (example: tb)
+    private void passToken() throws InterruptedException {
+
+        String destination = getRandomNeighbour();
+        String source = getIndex();
+        String finalMsg = "t" + encodeToken(source, destination);
+
+        sendMessage(finalMsg);
+        token = false;
+    }
+
+    private void passToken(String destination) throws InterruptedException {
+
+        String source = getIndex();
+        String finalMsg = "t" + encodeToken(source, destination);
+
+        sendMessage(finalMsg);
+        token = false;
+    }
+
+    //TODO: 1 byte = 8 bits, REDO!
+    private String encodeToken(String sourceAddr, String destinationAddr){
+        byte result = 0;
+        switch (sourceAddr) {
+            case "a":
+                result = 0;
+                break;
+            case "b":
+                result = 1 << 2;
+                break;
+            case "c":
+                result = 2 << 2;
+                break;
+            case "d":
+                result = 3 << 2;
+                break;
+        }
+
+        switch (destinationAddr){
+            case"a":
+                break;
+            case"b":
+                result = (byte) (result + 1);
+                break;
+            case"c":
+                result = (byte)  (result + 2);
+                break;
+            case"d":
+                result = (byte)  (result + 3);
+                break;
+        }
+
+        return String.valueOf((char) result);
+    }
+
+    public static String decodeToken(byte input){
+        String res = "";
+        byte input2 = (byte) (input >> 2);
+        switch (input2) {
+            case 0:
+                res = res + "a";
+                break;
+            case 1:
+                res = res + "b";
+                input = (byte) (input ^ 4);
+                break;
+            case 2:
+                res = res + "c";
+                input = (byte) (input ^ 8);
+                break;
+            case 3:
+                res = res + "d";
+                input = (byte) (input ^ 12);
+                break;
+        }
+        switch (input) {
+            case 0:
+                res = res + "a";
+                break;
+            case 1:
+                res = res + "b";
+                break;
+            case 2:
+                res = res + "c";
+                break;
+            case 3:
+                res = res + "d";
+                break;
+        }
+        return res;
+    }
+
     private void menu(){
-        System.out.println("TOKEN - PASS YOUR TOKEN TO THE NEXT NODE");
-        System.out.println("EXIT -  EXIT THE PROGRAM");
-        System.out.println("MyVector - SHOW THE DISTANCE VECTOR OF THE CURRENT NODE");
+        System.out.println("token - PASS YOUR TOKEN TO THE NEXT NODE");
+        System.out.println("exit -  EXIT THE PROGRAM");
+        System.out.println("myVector - SHOW THE DISTANCE VECTOR OF THE CURRENT NODE");
         System.out.println("myIndex - GET AN INDEX IF YOU STILL DON'T HAVE ONE, FROM THE REMAINING ONES");
-        System.out.println("MENU - display this screen again");
+        System.out.println("menu - display this screen again");
     }
     public MyProtocol(String server_ip, int server_port, int frequency){
         rand = new Random();
@@ -150,39 +263,62 @@ public class MyProtocol {
                     System.exit(0);
                 }
 
-                if(command.equals("TOKEN") && token && distanceVector.size() > 0){
-                    String destination = passToken();
-                    String finalMsg = destination + "~";
-
-
+                if(command.equals("token") && token && distanceVector.size() > 0){//TODO: implement error message if 1. you dont have token 2. indexing hasnt been done yet
+                    passToken();
                 }
                 //Command syntax: send node "message"
                 //Example: send c "hello world"
                 if(command.startsWith("send")){
-                    //TODO: packet sending
-                    String[] splitCommand = command.split(" ");
-                    //Packet header is 6 bytes total
-                    //(temporary) Packet header format: LENGTH=0 TTL=3 SEQ_NUM=0 SOURCEADDR DESTADDR PAYLOAD
-                    byte[] header = new byte[6];
-                    header[0] = 0; //length
-                    header[1] = 3; //ttl
-                    header[2] = 0; //Sequence number
-                    header[3] = 0; //Sequence number
-                    header[4] = myIndex.getBytes()[0]; //Source address
-                    header[5] = splitCommand[1].getBytes()[0]; //Destination addrress
-//                    byte length = 0;
-//                    byte ttl = 3;
-//                    byte[] seq_num = new byte[2];
-//                    byte sourceaddr = myIndex.getBytes()[0];
-//                    byte destaddr = splitCommand[1].getBytes()[0];
-                    byte[] payload = splitCommand[2].getBytes();
+                    if(!token)
+                        System.out.println("You don't have the token");
+                    else {
+                        //TODO: packet sending
+                        String[] splitCommand = command.split(" ");
+                        //Packet header is 6 bytes total
+                        //(temporary) Packet header format: LENGTH=0 TTL=3 SEQ_NUM=0 SOURCEADDR DESTADDR PAYLOAD
 
-                    String packet = Base64.getEncoder().encodeToString(header) +
-                                    Base64.getEncoder().encodeToString(payload);
+                        ByteBuffer packetBuffer; //Packet to send
 
-                    System.out.println("Sent packet: " + packet);
-                    sendMessage(packet);
-                    continue;
+                        byte[] header = new byte[6]; //Header
+                        header[0] = 6; //length
+                        header[1] = 3; //ttl
+                        header[2] = 0; //Sequence number
+                        header[3] = 0; //Sequence number
+                        header[4] = myIndex.getBytes()[0]; //Source address
+                        header[5] = splitCommand[1].getBytes()[0]; //Destination addrress
+
+//                        System.out.println(header);
+
+                        byte[] payload = splitCommand[2].getBytes(); //Payload
+                        int plength = payload.length;
+
+                        header[0] = (byte) (6+plength);
+
+                        //Put the whole packet in the buffer
+                        packetBuffer = ByteBuffer.allocate(32);
+                        packetBuffer.put(header);
+                        packetBuffer.put(payload);
+
+
+
+                        byte[] packetWithPadding = new byte[32];
+                        packetWithPadding = addPadding(packetBuffer.array());
+                        packetBuffer.clear();
+                        packetBuffer.put(packetWithPadding);
+                        //Create the message to send and send it
+                        Message msg = new Message(MessageType.DATA, packetBuffer);
+                        sendingQueue.put(msg);
+
+                        System.out.println("Sent packet: " + packetBuffer.toString() + " of length " + packetBuffer.array().length);
+                        System.out.println("Header: " + header.toString());
+
+                        if(getNeighbours().containsKey(splitCommand[1])) {
+                            passToken(splitCommand[1]);
+                        } else {
+                            passToken();
+                        }
+                        continue;
+                    }
                 }
             }
         } catch (InterruptedException e){
@@ -227,21 +363,50 @@ public class MyProtocol {
                             tempMsg = null; //After sending the message, reset the message buffer to null.
                         }
                     } else if (m.getType() == MessageType.DATA){
+                        lastPacketRecieved = m;
                         System.out.print("DATA: ");
-//                        printByteBuffer( m.getData(), m.getData().capacity() ); //Just print the data
-//
-//                        byte[] test = m.getData().array();
-//                        byte[] payload = Arrays.copyOfRange(test, 6, test.length-1);
-//                        String s =  Base64.getEncoder().encodeToString(payload);; //Decode the data recieved
                         String s = StandardCharsets.UTF_8.decode(m.getData()).toString(); //Decode the data recieved
                         System.out.println(s); //Print the data
+                        byte[] header =  Arrays.copyOfRange(m.getData().array(), 0, 6);
+                        if(header[5] == myIndex.getBytes()[0]){ //If this check is true, message is for this node TODO: implement ack
+                            byte[] payload = Arrays.copyOfRange(m.getData().array(),6, header[0]);
+                            String message = new String(payload);
+                            System.out.println("Message recieved:" + message);
+                            lastPacketRecieved = null;
+                        }
+                        Map<String,Integer> neighbours = getNeighbours();
+                        if(neighbours.containsKey(String.valueOf((char) header[5]))){
+                            System.out.println("neighbour");
+                            lastPacketRecieved = m; //Save the packet in memory to send it further when the token is acquired
+                        }
                     } else if (m.getType() == MessageType.DATA_SHORT){
                         System.out.print("DATA_SHORT: ");
                         String s = StandardCharsets.UTF_8.decode(m.getData()).toString(); //Decode the data recieved
                         System.out.println(s); //Print the data
-                        if(s.substring(0,1).equals("t")){
+                        if(s.substring(0,1).equals("t")){ //If the first byte is a T, that means its a token that has been passed
+                            if(decodeToken(m.getData().array()[1]).substring(1,2).equals(myIndex)) { //Get the packet data, transform it to an array of bytes, decode the token and see if the destination address equals to this node's address
+                                System.out.println(decodeToken(m.getData().array()[1])); //testing
+                                token = true;
+                                System.out.println("You have the token");
+                                if(lastPacketRecieved != null){
+                                    byte[] header =  Arrays.copyOfRange(lastPacketRecieved.getData().array(), 0, 6);
+                                    if(getNeighbours().containsKey(String.valueOf((char) header[5]))){ //If the destination of the packet is a neighbor
+                                        sendingQueue.put(lastPacketRecieved);
+                                        lastPacketRecieved = null;
+                                        passToken(String.valueOf((char) header[5]));
+                                    } else { //If the destination is not a neighbor, pass the token to a neighbor that is NOT the one that sent it TODO:implement
+                                        Map<String,Integer> neighbors = getNeighbours();
+                                        neighbors.remove(decodeToken(m.getData().array()[1]).substring(0,1));
+                                        ArrayList<String> neighbor_indexes = new ArrayList<>(neighbors.keySet());
+                                        String neighbor = neighbor_indexes.get(0);
 
-                        } else {
+                                        sendingQueue.put(lastPacketRecieved);
+                                        lastPacketRecieved = null;
+                                        passToken(neighbor);
+                                    }
+                                }
+                            }
+                        } else { //Else, its from initial flooding
                             if (distanceVector.containsKey(s.substring(0, 1))) {//If index is not this node's index, add the route to distanceVector
                                 continue;
                             } else {
