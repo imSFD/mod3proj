@@ -5,7 +5,9 @@ import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Scanner;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
@@ -29,7 +31,10 @@ public class MyProtocol {
     private BlockingQueue<Message> receivedQueue;
     private BlockingQueue<Message> sendingQueue;
 
+
+    private int seqNumber = 0;
     private Random rand;
+    private int counter = 0;
 
     //indexare
     private ArrayList<String> possibleIndex;
@@ -53,7 +58,12 @@ public class MyProtocol {
     //distance vectors
     private HashMap<String, Integer> distanceVector;
 
+    private MessageType state = MessageType.FREE;
+
+
+
     private String tempMsg = null; //Maybe rename?
+    private String tempMsg2 = null;
 
     //Token passing
     private boolean token = false;
@@ -249,10 +259,12 @@ public class MyProtocol {
                 }
                 if(command.equals("myIndex")){
                     System.out.println(myIndex);
+
                     continue;
                 }
                 if(command.equals("myVector")){
                     System.out.println(distanceVector.toString());
+
                     continue;
                 }
                 if(command.equals("menu")){
@@ -351,11 +363,27 @@ public class MyProtocol {
         }
 
         public void run(){
+            int timeToWait = 1;
             while(true) {
                 try{
                     Message m = receivedQueue.take();
+                    // assume sender sends a packet
                     if (m.getType() == MessageType.BUSY){
-                        System.out.println("BUSY");
+
+                        // wait for packet  arrival
+                        Thread.sleep(2^timeToWait);
+
+                           if(rand.nextInt()<25  || timeToWait==6){
+                               sendMessage("h1");
+                           timeToWait=1;}
+                           else{
+                               // increase the time unless it send back
+                               timeToWait=timeToWait+1;
+                           }
+
+
+
+                        //System.out.println("BUSY");
                     } else if (m.getType() == MessageType.FREE){
                         System.out.println("FREE");
                         if(tempMsg != null){ //Whenever the channel is free, check if we have a message to send.
