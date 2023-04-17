@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="231c8f67-797b-4eeb-8da0-ddb4835d46a2" name="Changes" comment="Token passing partially implemented.">
+    <list default="true" id="231c8f67-797b-4eeb-8da0-ddb4835d46a2" name="Changes" comment="Token passing, padding, basic message sending, token encoding, token decoding,maybe more idk">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/MyProtocol.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/MyProtocol.java" afterDir="false" />
     </list>
@@ -38,20 +38,33 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "last_opened_file_path": "D:/Downloads/rdt_java",
     "node.js.selected.package.tslint": "(autodetect)"
   }
 }]]></component>
-  <component name="RunManager">
-    <configuration name="MyProtocol" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Application.MyProtocol">
+    <configuration name="MyProtocol" type="Application" factoryName="Application" singleton="false" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="MyProtocol" />
       <module name="mod3proj" />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>
     </configuration>
+    <configuration name="testing" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="testing" />
+      <module name="mod3proj" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <list>
+      <item itemvalue="Application.testing" />
+      <item itemvalue="Application.MyProtocol" />
+    </list>
     <recent_temporary>
       <list>
         <item itemvalue="Application.MyProtocol" />
+        <item itemvalue="Application.testing" />
         <item itemvalue="Application.MyProtocol" />
         <item itemvalue="Application.MyProtocol" />
       </list>
@@ -102,6 +115,22 @@
     <MESSAGE value="2nd commit, fixing." />
     <MESSAGE value="Token passing partially implemented." />
     <option name="LAST_COMMIT_MESSAGE" value="Token passing partially implemented." />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/MyProtocol.java</url>
+          <line>452</line>
+          <option name="timeStamp" value="16" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/MyProtocol.java</url>
+          <line>333</line>
+          <option name="timeStamp" value="18" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
