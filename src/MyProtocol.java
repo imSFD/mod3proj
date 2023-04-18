@@ -37,10 +37,21 @@ public class MyProtocol {
     private String myIndex;
 
     private String restOfMessage = null;
+    private boolean ackReceived;
+    private int lastSequenceNumber = 0;
     private String receivedMessage = "";
     private String destination = null;
 
 //    private boolean messageIsFragmented = false;
+
+    public static boolean isNumber(String strNum) {
+        try {
+            double d = Double.parseDouble(strNum);
+        } catch (NumberFormatException nfe) {
+            return false;
+        }
+        return true;
+    }
 
     private String fragmentMessage(String message){
         if(message.length() < 26){
@@ -78,7 +89,7 @@ public class MyProtocol {
 
     private String tempMsg = null; //Maybe rename?
 
-    private boolean ack_bool = false;
+    private boolean ack_token = false;
 
     //Token passing
     private boolean token = false;
@@ -332,6 +343,7 @@ public class MyProtocol {
 
                         String message = splitCommand[2].substring(1, splitCommand[2].length() - 1); //the message without the quotations
                         message = fragmentMessage(message);
+
                         byte[] payload = message.getBytes(); //Payload
                         int plength = payload.length;
 
@@ -364,6 +376,56 @@ public class MyProtocol {
                             passToken(splitCommand[1]);
                         } else {
                             passToken();
+                        }
+
+                        ackReceived = false;
+
+                        while (restOfMessage != null || !ackReceived){
+                            for(int i = 0; i < 5; i++){
+                                Thread.sleep(7000 + 1000*distanceVector.get(splitCommand[1]));
+                                if(ackReceived){ //TODO
+                                    ackReceived = false;
+                                    if(restOfMessage != null) {
+                                        message = fragmentMessage(restOfMessage);
+                                        header[2] += 1;
+                                        lastSequenceNumber = header[2];
+
+                                        payload = message.getBytes(); //Payload
+                                        plength = payload.length;
+
+                                        header[0] = (byte) (6+plength);
+
+                                        if(restOfMessage != null){
+                                            header[3] = 0;
+                                        } else {
+                                            header[3] = 1;
+                                        }
+
+                                        //Put the whole packet in the buffer
+                                        packetBuffer = ByteBuffer.allocate(32);
+                                        packetBuffer.put(header);
+                                        packetBuffer.put(payload);
+
+                                        packetWithPadding = addPadding(packetBuffer.array());
+                                        packetBuffer.clear();
+                                        packetBuffer.put(packetWithPadding);
+                                        //Create the message to send and send it
+                                        msg = new Message(MessageType.DATA, packetBuffer);
+                                        sendingQueue.put(msg);
+                                    } else {
+                                        ackReceived = true;
+                                        break;
+                                    }
+                                } else {
+                                    System.out.println("Retransmitting!");
+                                    sendingQueue.put(msg);
+                                    if(getNeighbours().containsKey(splitCommand[1])) {
+                                        passToken(splitCommand[1]);
+                                    } else {
+                                        passToken();
+                                    }
+                                }
+                            }
                         }
                         continue;
                     }
@@ -440,23 +502,37 @@ public class MyProtocol {
                         System.out.println(s); //Print the data
                         byte[] header =  Arrays.copyOfRange(m.getData().array(), 0, 6);
                         if(header[5] == myIndex.getBytes()[0]){ //If this check is true, message is for this node
+                            if(header[2] == lastSequenceNumber){
+                                lastSequenceNumber += 1;
+                                byte[] payload = Arrays.copyOfRange(m.getData().array(),6, header[0]);
+                                String message = new String(payload);
 
-                            byte[] payload = Arrays.copyOfRange(m.getData().array(),6, header[0]);
-                            String message = new String(payload);
+                                receivedMessage += message;
 
-                            receivedMessage += message;
-                            if(header[3] == 1) {
-                                System.out.println("Message recieved: " + receivedMessage);
-                                receivedMessage = "";
+                                if(header[3] == 1) {
+                                    System.out.println("Message recieved: " + receivedMessage);
+                                    receivedMessage = "";
+                                    lastSequenceNumber = 0;
+                                }
+                                String ack = constructAck(header);
+                                byte[] ack_b = ack.getBytes();
+                                ByteBuffer toSend = ByteBuffer.allocate(ack.length());
+                                toSend.put(ack_b, 0, ack_b.length);
+                                Message ack_m = new Message(MessageType.DATA_SHORT, toSend);
+                                lastPacketRecieved = ack_m;
+                                ack_token = true;
+                            } else {
+                                header[2] -= 1;
+                                String ack = constructAck(header);
+                                byte[] ack_b = ack.getBytes();
+                                ByteBuffer toSend = ByteBuffer.allocate(ack.length());
+                                toSend.put(ack_b, 0, ack_b.length);
+                                Message ack_m = new Message(MessageType.DATA_SHORT, toSend);
+                                lastPacketRecieved = ack_m;
+                                ack_token = true;
                             }
-                            String ack = constructAck(header);
-                            byte[] ack_b = ack.getBytes();
-                            ByteBuffer toSend = ByteBuffer.allocate(ack.length());
-                            toSend.put(ack_b, 0, ack_b.length);
-                            Message ack_m = new Message(MessageType.DATA_SHORT, toSend);
-                            lastPacketRecieved = ack_m;
-                            ack_bool = true;
                         }
+
                         Map<String,Integer> neighbours = getNeighbours();
                         if(neighbours.containsKey(String.valueOf((char) header[5]))){
                             System.out.println("neighbour");
@@ -479,7 +555,7 @@ public class MyProtocol {
                                         passToken(String.valueOf((char) header[5]));
                                     } else { //If the destination is not a neighbor, pass the token to a neighbor that is NOT the one that sent it TODO:implement
                                         Map<String, Integer> neighbors = getNeighbours();
-                                        if(!ack_bool) {
+                                        if(!ack_token) {
                                             neighbors.remove(decodeToken(m.getData().array()[1]).substring(0, 1));
                                         }
                                         ArrayList<String> neighbor_indexes = new ArrayList<>(neighbors.keySet());
@@ -488,63 +564,16 @@ public class MyProtocol {
                                         sendingQueue.put(lastPacketRecieved);
                                         lastPacketRecieved = null;
                                         passToken(neighbor);
-                                        ack_bool = false;
+                                        ack_token = false;
                                     }
                                 }
                             } else {
                                 lastPacketRecieved = null;
                             }
-                            if(restOfMessage != null){ //For fragmentation
-                                ByteBuffer packetBuffer;
-                                String dest = destination;
-
-                                String message = fragmentMessage(restOfMessage);
-
-                                byte[] header = new byte[6];
-                                header[0] = 6; //length
-                                header[1] = 3; //ttl
-                                header[2] = 0; //Sequence number
-                                if(restOfMessage != null) {
-                                    header[3] = 0; //Sequence number
-                                } else {
-                                    header[3] = 1;
-                                }
-                                header[4] = myIndex.getBytes()[0]; //Source address
-                                header[5] = dest.getBytes()[0]; //Destination addrress
-
-
-
-                                byte[] payload = message.getBytes();
-                                int plength = payload.length;
-
-                                header[0] = (byte) (6+plength);
-
-                                packetBuffer = ByteBuffer.allocate(32);
-                                packetBuffer.put(header);
-                                packetBuffer.put(payload);
-
-                                byte[] packetWithPadding = addPadding(packetBuffer.array());
-                                packetBuffer.clear();
-                                packetBuffer.put(packetWithPadding);
-                                //Create the message to send and send it
-                                Message msg = new Message(MessageType.DATA, packetBuffer);
-                                sendingQueue.put(msg);
-//                        ack = false;
-
-                                System.out.println("Sent packet: " + packetBuffer.toString() + " of length " + packetBuffer.array().length);
-                                System.out.println("Header: " + header.toString());
-
-                                if(getNeighbours().containsKey(dest)) {
-                                    passToken(dest);
-                                } else {
-                                    passToken();
-                                }
-                            }
-
-                        } else if (s.substring(0,1).equals("0") || s.substring(0,1).equals("1")){
+                        } else if (isNumber(s.substring(0,1))){
                             if (decodeToken(m.getData().array()[1]).substring(1, 2).equals(myIndex)) {
                                 System.out.println("Ack recieved!");
-//                                ack = true;
+                                ackReceived = true;
                             } else {
                                 lastPacketRecieved = m;
                             }
