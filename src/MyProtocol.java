@@ -60,7 +60,7 @@ public class MyProtocol {
             return message;
         } else {
             String foo = message.substring(0,26);
-            restOfMessage = message.substring(27);
+            restOfMessage = message.substring(26);
             return foo;
         }
     }
@@ -156,6 +156,7 @@ public class MyProtocol {
 
         sendMessage(finalMsg);
         token = false;
+        System.out.println("You no longer have the token");
     }
 
     private void passToken(String destination) throws InterruptedException {
@@ -165,6 +166,7 @@ public class MyProtocol {
 
         sendMessage(finalMsg);
         token = false;
+        System.out.println("You no longer have the token");
     }
 
     //TODO: 1 byte = 8 bits, REDO!
@@ -246,11 +248,11 @@ public class MyProtocol {
     }
 
     private void menu(){
-        System.out.println("token - PASS YOUR TOKEN TO THE NEXT NODE");
-        System.out.println("exit -  EXIT THE PROGRAM");
-        System.out.println("myVector - SHOW THE DISTANCE VECTOR OF THE CURRENT NODE");
-        System.out.println("myIndex - GET AN INDEX IF YOU STILL DON'T HAVE ONE, FROM THE REMAINING ONES");
-        System.out.println("menu - display this screen again");
+        System.out.println("token - pass the token to a neighbouring node, selected at random");
+        System.out.println("exit -  exit the program");
+        System.out.println("myVector - show the nodes in the system, with distance");
+        System.out.println("myIndex - print out this node's index");
+        System.out.println("menu - display the commands screen");
     }
     public MyProtocol(String server_ip, int server_port, int frequency){
         rand = new Random();
@@ -279,23 +281,19 @@ public class MyProtocol {
         // handle sending from stdin from this thread.
         try{
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-
+            System.out.println("Please write 'index' to get your index.");
             while(true){
                 String command = reader.readLine();
                 if(command.equals("index")){ //Starts up the indexing proccess, selecting this node as node "a"
                     System.out.println("This node's index is: " + assignIndex());
 
                     sendMessage(myIndex+0);
-
+                    System.out.println("Available commands: ");
+                    menu();
                     continue;
                 }
-                if(command.equals("devToken")){
-                    System.out.println("You have the token");
-
-                    token = true;
-                }
                 if(command.equals("myIndex")){
-                    System.out.println(myIndex);
+                    System.out.println("This node's index is " + myIndex);
 
                     continue;
                 }
@@ -369,8 +367,9 @@ public class MyProtocol {
                         sendingQueue.put(msg);
 //                        ack = false;
 
-                        System.out.println("Sent packet: " + packetBuffer.toString() + " of length " + packetBuffer.array().length);
-                        System.out.println("Header: " + header.toString());
+//                        System.out.println("Sent packet: " + packetBuffer.toString() + " of length " + packetBuffer.array().length);
+//                        System.out.println("Header: " + header.toString());
+//                        System.out.println(restOfMessage);
 
                         if(getNeighbours().containsKey(splitCommand[1])) {
                             passToken(splitCommand[1]);
@@ -412,6 +411,12 @@ public class MyProtocol {
                                         //Create the message to send and send it
                                         msg = new Message(MessageType.DATA, packetBuffer);
                                         sendingQueue.put(msg);
+
+                                        if(getNeighbours().containsKey(splitCommand[1])) {
+                                            passToken(splitCommand[1]);
+                                        } else {
+                                            passToken();
+                                        }
                                     } else {
                                         ackReceived = true;
                                         break;
@@ -467,7 +472,7 @@ public class MyProtocol {
                     Message m = receivedQueue.take();
                     // assume sender sends a packet
                     if (m.getType() == MessageType.BUSY){
-                        System.out.println("BUSY");
+//                        System.out.println("BUSY");
                         // wait for packet  arrival
 
                         timeToWait = timeToWait + 2;
@@ -485,7 +490,7 @@ public class MyProtocol {
 
                         //System.out.println("BUSY");
                     } else if (m.getType() == MessageType.FREE){
-                        System.out.println("FREE");
+//                        System.out.println("FREE");
                         if(tempMsg != null){ //Whenever the channel is free, check if we have a message to send.
                             for(int i = 0; i < 10; i++){
                                 Thread.sleep(rand.nextInt(2^timeToWait));
@@ -497,9 +502,9 @@ public class MyProtocol {
                         }
                     } else if (m.getType() == MessageType.DATA){
                         lastPacketRecieved = m;
-                        System.out.print("DATA: ");
+//                        System.out.print("DATA: ");
                         String s = StandardCharsets.UTF_8.decode(m.getData()).toString(); //Decode the data recieved
-                        System.out.println(s); //Print the data
+//                        System.out.println(s); //Print the data
                         byte[] header =  Arrays.copyOfRange(m.getData().array(), 0, 6);
                         if(header[5] == myIndex.getBytes()[0]){ //If this check is true, message is for this node
                             if(header[2] == lastSequenceNumber){
@@ -510,7 +515,7 @@ public class MyProtocol {
                                 receivedMessage += message;
 
                                 if(header[3] == 1) {
-                                    System.out.println("Message recieved: " + receivedMessage);
+                                    System.out.println("Message recieved from " + String.valueOf((char) header[4]) + ": " +receivedMessage);
                                     receivedMessage = "";
                                     lastSequenceNumber = 0;
                                 }
@@ -535,14 +540,14 @@ public class MyProtocol {
 
                         Map<String,Integer> neighbours = getNeighbours();
                         if(neighbours.containsKey(String.valueOf((char) header[5]))){
-                            System.out.println("neighbour");
+//                            System.out.println("neighbour");
                             lastPacketRecieved = m; //Save the packet in memory to send it further when the token is acquired
                         }
                     } else if (m.getType() == MessageType.DATA_SHORT){
 
-                        System.out.print("DATA_SHORT: ");
+//                        System.out.print("DATA_SHORT: ");
                         String s = StandardCharsets.UTF_8.decode(m.getData()).toString(); //Decode the data recieved
-                        System.out.println(s); //Print the data
+//                        System.out.println(s); //Print the data
                         if(s.substring(0,1).equals("t")) { //If the first byte is a T, that means its a token that has been passed
                             if (decodeToken(m.getData().array()[1]).substring(1, 2).equals(myIndex)) { //Get the packet data, transform it to an array of bytes, decode the token and see if the destination address equals to this node's address
                                 token = true;
@@ -572,7 +577,7 @@ public class MyProtocol {
                             }
                         } else if (isNumber(s.substring(0,1))){
                             if (decodeToken(m.getData().array()[1]).substring(1, 2).equals(myIndex)) {
-                                System.out.println("Ack recieved!");
+//                                System.out.println("Ack recieved!");
                                 ackReceived = true;
                             } else {
                                 lastPacketRecieved = m;
@@ -589,14 +594,14 @@ public class MyProtocol {
                             }
                         }
                     } else if (m.getType() == MessageType.DONE_SENDING){
-                        System.out.println("DONE_SENDING");
+//                        System.out.println("DONE_SENDING");
                         timeToWait = 1;
                     } else if (m.getType() == MessageType.HELLO){
-                        System.out.println("HELLO");
+//                        System.out.println("HELLO");
                     } else if (m.getType() == MessageType.SENDING){
-                        System.out.println("SENDING");
+//                        System.out.println("SENDING");
                     } else if (m.getType() == MessageType.END){
-                        System.out.println("END");
+//                        System.out.println("END");
                         System.exit(0);
                     }
                 } catch (InterruptedException e){
